@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>NoType Recorder</title></head>
+<body>
+<script>
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let stream = null;
+
+  // 初始化麥克風
+  async function initMicrophone() {
+    if (stream) return;
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        sampleRate: 16000,
+        echoCancellation: true,
+        noiseSuppression: true,
+      },
+    });
+  }
+
+  // 開始錄音
+  window.recorderBridge.onStartRecording(async () => {
+    try {
+      await initMicrophone();
+      audioChunks = [];
+
+      mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+      });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunks.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        const buffer = await blob.arrayBuffer();
+        window.recorderBridge.sendAudioData(Array.from(new Uint8Array(buffer)));
+      };
+
+      mediaRecorder.start(100); // 每 100ms 收集一次資料
+    } catch (err) {
+      console.error('錄音啟動失敗:', err);
+    }
+  });
+
+  // 停止錄音
+  window.recorderBridge.onStopRecording(() => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+    }
+  });
+</script>
+</body>
+</html>

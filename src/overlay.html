@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; }
+    body {
+      background: transparent;
+      font-family: 'Segoe UI', sans-serif;
+      -webkit-app-region: no-drag;
+    }
+    .overlay {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: rgba(20, 20, 20, 0.92);
+      border: 1px solid rgba(74, 158, 255, 0.4);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ff4444;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    .dot.processing {
+      background: #4a9eff;
+      animation: spin 1s linear infinite;
+    }
+    .dot.done {
+      background: #5cb85c;
+      animation: none;
+    }
+    .text {
+      color: #e0e0e0;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <div class="dot" id="dot"></div>
+    <span class="text" id="text">錄音中...</span>
+  </div>
+  <script>
+    window.electronOverlay?.onStatusUpdate((status) => {
+      const dot = document.getElementById('dot');
+      const text = document.getElementById('text');
+      switch (status) {
+        case 'recording':
+          dot.className = 'dot';
+          text.textContent = '🎙️ 錄音中...';
+          break;
+        case 'processing':
+          dot.className = 'dot processing';
+          text.textContent = '⚡ 辨識中...';
+          break;
+        case 'polishing':
+          dot.className = 'dot processing';
+          text.textContent = '✨ 潤飾中...';
+          break;
+        case 'done':
+          dot.className = 'dot done';
+          text.textContent = '✓ 完成';
+          break;
+        case 'error':
+          dot.className = 'dot';
+          dot.style.background = '#ff8800';
+          text.textContent = '⚠ 錯誤';
+          break;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "name": "notype",
+  "version": "1.0.0",
+  "description": "AI 語音輸入工具 — 用說的取代打字",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mathruffian-dot/notype.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mathruffian-dot/notype/issues"
+  },
+  "homepage": "https://github.com/mathruffian-dot/notype#readme",
+  "dependencies": {
+    "electron": "^41.2.0",
+    "electron-store": "^8.2.0",
+    "koffi": "^2.15.6",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.8.1"
+  }
+}

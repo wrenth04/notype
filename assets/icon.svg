@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#60B0FF"/>
+      <stop offset="100%" stop-color="#3080E0"/>
+    </linearGradient>
+  </defs>
+  <!-- 圓角背景 -->
+  <rect width="32" height="32" rx="8" fill="url(#g)"/>
+  <!-- 麥克風頭部 -->
+  <rect x="12" y="5" width="8" height="13" rx="4" fill="white"/>
+  <!-- 麥克風弧形支架 -->
+  <path d="M10 15 Q10 23 16 23 Q22 23 22 15" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <!-- 麥克風底座線 -->
+  <line x1="16" y1="23" x2="16" y2="27" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <!-- 底座橫線 -->
+  <line x1="12" y1="27" x2="20" y2="27" stroke="white" stroke-width="2" stroke-linecap="round"/>
+</svg>
