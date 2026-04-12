@@ -12,7 +12,7 @@
     "url": "git+https://github.com/mathruffian-dot/notype.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "mathruffian-dot",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
@@ -20,12 +20,41 @@
   },
   "homepage": "https://github.com/mathruffian-dot/notype#readme",
   "dependencies": {
-    "electron": "^41.2.0",
     "electron-store": "^8.2.0",
     "koffi": "^2.15.6",
     "pngjs": "^7.0.0"
   },
   "devDependencies": {
-    "electron-builder": "^26.8.1"
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1",
+    "png-to-ico": "^3.0.1"
+  },
+  "build": {
+    "appId": "com.notype.app",
+    "productName": "NoType",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "shortcutName": "NoType"
+    },
+    "portable": {
+      "artifactName": "NoType-Portable-${version}.exe"
+    }
   }
 }
