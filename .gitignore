@@ -1,0 +1,20 @@
+# 系統檔
+desktop.ini
+*.tmp
+~$*
+Thumbs.db
+.DS_Store
+
+# 敏感資料
+.env
+*.key
+credentials.*
+
+# Node.js
+node_modules/
+dist/
+.cache/
+
+# 大型二進位檔（選擇性排除）
+# *.mp4
+# *.zip
