@@ -34,6 +34,7 @@ NoType 是一個 AI 語音輸入工具，讓使用者不需要打字，透過語
 - [x] 修正鍵盤卡住問題（貼上前強制釋放所有修飾鍵）
 - [ ] 端到端測試確認文字成功輸入到目標欄位
 - [ ] 體驗優化（圖示狀態變化、錯誤提示、開機啟動等）
+- [x] GitHub Actions 自動建置 Windows 版本
 - [ ] 打包成 Windows 安裝檔（electron-builder）
 
 ## 開發過程中遇到的問題與解法
@@ -74,8 +75,9 @@ NoType 是一個 AI 語音輸入工具，讓使用者不需要打字，透過語
 | 日期 | 變更摘要 | GitHub |
 |------|----------|--------|
 | 2026-04-12 | 專案初始化 | ✅ |
-| 2026-04-12 | 完成 v0.1：骨架、設定頁、錄音、STT、LLM、鍵盤輸入 | 待推送 |
-| 2026-04-12 | 修正圖示（SVG→PNG）、快捷鍵（toggle→按住）、鍵盤卡住問題 | 待推送 |
+| 2026-04-12 | 完成 v0.1：骨架、設定頁、錄音、STT、LLM、鍵盤輸入 | ✅ |
+| 2026-04-12 | 修正圖示（SVG→PNG）、快捷鍵（toggle→按住）、鍵盤卡住問題 | ✅ |
+| 2026-04-16 | 新增 GitHub Actions workflow，自動建置 Windows 安裝版與 Portable 版 | 待推送 |
 
 ## 資料夾結構
 ```
@@ -84,10 +86,15 @@ notype/
 ├── CLAUDE.md
 ├── .gitignore
 ├── assets/
+│   ├── icon-256.png         # 256x256 安裝檔用圖示（pngjs 生成）
+│   ├── icon.ico             # Windows 打包圖示
 │   ├── icon.png             # 64x64 藍色麥克風圖示（pngjs 生成）
 │   └── icon.svg             # SVG 版本（備用，系統匣未使用）
 ├── scripts/
 │   └── generate-icon.js     # 圖示生成腳本
+├── .github/
+│   └── workflows/
+│       └── build-windows.yml # GitHub Actions：自動建置 Windows 安裝版與 Portable 版
 └── src/
     ├── main.js              # Electron 主程序入口 + IPC handlers
     ├── tray.js              # 系統匣管理
