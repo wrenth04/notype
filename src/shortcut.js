@@ -18,6 +18,7 @@ let shortcutStates = {
   translate: false,
 };
 let activeRecordingMode = 'default';
+let recordingStartedAt = 0;
 
 const user32 = koffi.load('user32.dll');
 const GetAsyncKeyState = user32.func('short __stdcall GetAsyncKeyState(int vKey)');
@@ -140,17 +141,40 @@ function registerShortcut() {
 
   shortcutMonitorTimer = setInterval(() => {
     const isTranslatePressed = isShortcutPressed(shortcuts.translate);
-    const isDefaultPressed = isShortcutPressed(shortcuts.default) && !isTranslatePressed;
+    const isDefaultPhysicalPressed = isShortcutPressed(shortcuts.default);
+    const isDefaultPressed = isDefaultPhysicalPressed && !isTranslatePressed;
 
     if (!shortcutStates.translate && isTranslatePressed) {
-      startRecording('translate');
+      logger.info('shortcut', '偵測到翻譯快捷鍵按下', {
+        shortcut: shortcuts.translate.value,
+      });
+      if (!isRecording) {
+        startRecording('translate');
+      } else {
+        tryUpgradeRecordingMode('translate', 'translate-shortcut-pressed');
+      }
     } else if (!shortcutStates.default && isDefaultPressed) {
+      logger.info('shortcut', '偵測到預設快捷鍵按下', {
+        shortcut: shortcuts.default.value,
+      });
       startRecording('default');
     }
 
+    if (isRecording && isTranslatePressed) {
+      tryUpgradeRecordingMode('translate', 'translate-shortcut-held');
+    }
+
     if (activeRecordingMode === 'translate' && shortcutStates.translate && !isTranslatePressed) {
+      logger.info('shortcut', '偵測到翻譯快捷鍵放開，停止錄音', {
+        shortcut: shortcuts.translate.value,
+        mode: activeRecordingMode,
+      });
       stopRecordingAndProcess();
-    } else if (activeRecordingMode === 'default' && shortcutStates.default && !isDefaultPressed) {
+    } else if (activeRecordingMode === 'default' && shortcutStates.default && !isDefaultPhysicalPressed) {
+      logger.info('shortcut', '偵測到預設快捷鍵放開，停止錄音', {
+        shortcut: shortcuts.default.value,
+        mode: activeRecordingMode,
+      });
       stopRecordingAndProcess();
     }
 
@@ -169,11 +193,33 @@ function startRecording(mode = 'default') {
   if (isRecording) return;
   isRecording = true;
   activeRecordingMode = mode;
-  logger.info('shortcut', '開始錄音', { mode });
+  recordingStartedAt = Date.now();
+  logger.info('shortcut', '開始錄音', {
+    mode,
+    recordingStartedAt,
+  });
   showOverlay('recording');
 
   const win = createRecorderWindow();
   win.webContents.send('start-recording');
+}
+
+function tryUpgradeRecordingMode(nextMode, reason) {
+  if (!isRecording || activeRecordingMode === nextMode) return false;
+
+  const elapsed = Date.now() - recordingStartedAt;
+  if (activeRecordingMode !== 'default' || nextMode !== 'translate') {
+    return false;
+  }
+
+  activeRecordingMode = nextMode;
+  logger.info('shortcut', '錄音模式已升級', {
+    from: 'default',
+    to: nextMode,
+    elapsed,
+    reason,
+  });
+  return true;
 }
 
 function stopRecordingAndProcess() {
@@ -185,9 +231,13 @@ function stopRecordingAndProcess() {
     keyPollTimer = null;
   }
 
+  const elapsed = recordingStartedAt ? Date.now() - recordingStartedAt : null;
   const win = createRecorderWindow();
   win.webContents.send('stop-recording');
-  logger.info('shortcut', '停止錄音，開始處理');
+  logger.info('shortcut', '停止錄音，開始處理', {
+    mode: activeRecordingMode,
+    elapsed,
+  });
 }
 
 async function handleAudioData(audioBuffer) {
@@ -223,7 +273,13 @@ async function handleAudioData(audioBuffer) {
     }
 
     showOverlay('polishing');
-    const targetLanguage = recordingMode === 'translate' ? store.get('outputLanguage') : null;
+    const storeOutputLanguage = store.get('outputLanguage');
+    const targetLanguage = recordingMode === 'translate' ? storeOutputLanguage : null;
+    logger.info('shortcut', '已解析輸出語言', {
+      mode: recordingMode,
+      storeOutputLanguage,
+      targetLanguage,
+    });
     const polishedText = await polishText(rawText, { targetLanguage, mode: recordingMode });
     logger.info('shortcut', '文字潤飾完成', { length: polishedText.length, mode: recordingMode, targetLanguage });
 
@@ -245,6 +301,7 @@ async function handleAudioData(audioBuffer) {
   } finally {
     cleanupTempAudio();
     activeRecordingMode = 'default';
+    recordingStartedAt = 0;
     logger.info('shortcut', '錄音暫存檔已清理');
   }
 }
@@ -265,6 +322,7 @@ function unregisterShortcut() {
     translate: false,
   };
   activeRecordingMode = 'default';
+  recordingStartedAt = 0;
   logger.info('shortcut', '快捷鍵監聽已停止');
 }
 

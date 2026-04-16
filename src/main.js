@@ -103,7 +103,12 @@ app.whenReady().then(() => {
     }
     app.setLoginItemSettings({ openAtLogin: settings.launchAtStartup ?? false });
     const shortcutRegistered = registerShortcut();
-    logger.info('main', '設定儲存完成', { shortcutRegistered, shortcut: store.get('shortcut') });
+    logger.info('main', '設定儲存完成', {
+      shortcutRegistered,
+      shortcut: store.get('shortcut'),
+      secondaryShortcut: store.get('secondaryShortcut'),
+      outputLanguage: store.get('outputLanguage'),
+    });
     return true;
   });
 
