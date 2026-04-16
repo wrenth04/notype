@@ -1,12 +1,25 @@
 const FIELDS = [
   'sttProvider', 'openaiApiKey', 'groqApiKey',
-  'language', 'shortcut', 'enablePolish', 'polishProvider',
+  'language', 'shortcut', 'secondaryShortcut', 'outputLanguage', 'enablePolish', 'polishProvider',
   'copyToClipboard', 'launchAtStartup',
 ];
 
-const SUPPORTED_SHORTCUT = {
-  value: 'RightCtrl',
-  display: '右 Ctrl',
+const SHORTCUT_FIELD_CONFIG = {
+  shortcut: {
+    defaultValue: 'RightCtrl',
+    options: [
+      { value: 'RightCtrl', display: '右 Ctrl', codes: ['ControlRight'] },
+    ],
+  },
+  secondaryShortcut: {
+    defaultValue: 'RightCtrl+Shift',
+    options: [
+      { value: 'RightCtrl+Shift', display: '右 Ctrl + Shift', codes: ['ControlRight', 'ShiftLeft'] },
+      { value: 'RightCtrl+RightShift', display: '右 Ctrl + 右 Shift', codes: ['ControlRight', 'ShiftRight'] },
+      { value: 'RightCtrl+LeftAlt', display: '右 Ctrl + 左 Alt', codes: ['ControlRight', 'AltLeft'] },
+      { value: 'RightCtrl+Space', display: '右 Ctrl + Space', codes: ['ControlRight', 'Space'] },
+    ],
+  },
 };
 
 const MAX_VOCABULARY_ITEMS = 200;
@@ -135,6 +148,18 @@ function collectVocabularyItems() {
   return items.slice(0, MAX_VOCABULARY_ITEMS);
 }
 
+function getShortcutOption(fieldId, value) {
+  const fieldConfig = SHORTCUT_FIELD_CONFIG[fieldId];
+  if (!fieldConfig) return null;
+  return fieldConfig.options.find((option) => option.value === value) || null;
+}
+
+function getDefaultShortcutOption(fieldId) {
+  const fieldConfig = SHORTCUT_FIELD_CONFIG[fieldId];
+  if (!fieldConfig) return null;
+  return getShortcutOption(fieldId, fieldConfig.defaultValue) || fieldConfig.options[0] || null;
+}
+
 async function loadSettings() {
   const settings = await window.noTypeAPI.getSettings();
   for (const id of FIELDS) {
@@ -142,9 +167,11 @@ async function loadSettings() {
     if (!el) continue;
     if (el.type === 'checkbox') {
       el.checked = settings[id] ?? false;
-    } else if (id === 'shortcut') {
-      el.value = settings[id] === SUPPORTED_SHORTCUT.value ? SUPPORTED_SHORTCUT.display : SUPPORTED_SHORTCUT.display;
-      el.dataset.shortcutValue = SUPPORTED_SHORTCUT.value;
+    } else if (SHORTCUT_FIELD_CONFIG[id]) {
+      const option = getShortcutOption(id, settings[id]) || getDefaultShortcutOption(id);
+      if (!option) continue;
+      el.value = option.display;
+      el.dataset.shortcutValue = option.value;
     } else {
       el.value = settings[id] ?? '';
     }
@@ -159,8 +186,9 @@ function collectSettings() {
   for (const id of FIELDS) {
     const el = document.getElementById(id);
     if (!el) continue;
-    if (id === 'shortcut') {
-      settings[id] = el.dataset.shortcutValue || SUPPORTED_SHORTCUT.value;
+    if (SHORTCUT_FIELD_CONFIG[id]) {
+      const fallback = getDefaultShortcutOption(id);
+      settings[id] = el.dataset.shortcutValue || fallback?.value || '';
     } else {
       settings[id] = el.type === 'checkbox' ? el.checked : el.value;
     }
@@ -210,39 +238,76 @@ async function testApiKey(provider) {
   setTimeout(() => { btn.textContent = '測試'; btn.className = 'btn-test'; }, 3000);
 }
 
-function setupShortcutCapture() {
-  const input = document.getElementById('shortcut');
+function getShortcutCapturePlaceholder(fieldId) {
+  if (fieldId === 'secondaryShortcut') {
+    return '請按想要的組合鍵...';
+  }
+  return '請按右 Ctrl...';
+}
+
+function setupShortcutCapture(fieldId) {
+  const input = document.getElementById(fieldId);
   const status = document.getElementById('saveStatus');
+  const fieldConfig = SHORTCUT_FIELD_CONFIG[fieldId];
+  if (!input || !status || !fieldConfig) return;
+
   let capturing = false;
+  const pressedCodes = new Set();
 
   input.addEventListener('focus', () => {
     capturing = true;
-    input.value = '請按右 Ctrl...';
+    pressedCodes.clear();
+    input.value = getShortcutCapturePlaceholder(fieldId);
   });
 
   input.addEventListener('blur', () => {
     capturing = false;
-    if (input.value === '請按右 Ctrl...') {
-      input.value = SUPPORTED_SHORTCUT.display;
-      input.dataset.shortcutValue = SUPPORTED_SHORTCUT.value;
+    pressedCodes.clear();
+    if (input.value === getShortcutCapturePlaceholder(fieldId)) {
+      const fallback = getShortcutOption(fieldId, input.dataset.shortcutValue) || getDefaultShortcutOption(fieldId);
+      if (!fallback) return;
+      input.value = fallback.display;
+      input.dataset.shortcutValue = fallback.value;
     }
   });
 
   input.addEventListener('keydown', (e) => {
     if (!capturing) return;
     e.preventDefault();
+    pressedCodes.add(e.code);
 
-    if (e.code === 'ControlRight') {
-      input.value = SUPPORTED_SHORTCUT.display;
-      input.dataset.shortcutValue = SUPPORTED_SHORTCUT.value;
+    const matchedOption = fieldConfig.options.find((option) => (
+      option.codes.length === pressedCodes.size
+      && option.codes.every((code) => pressedCodes.has(code))
+    ));
+
+    if (matchedOption) {
+      input.value = matchedOption.display;
+      input.dataset.shortcutValue = matchedOption.value;
       capturing = false;
+      pressedCodes.clear();
       input.blur();
       return;
     }
 
-    status.textContent = '目前只支援右 Ctrl';
+    const hasPotentialMatch = fieldConfig.options.some((option) => (
+      pressedCodes.size <= option.codes.length
+      && Array.from(pressedCodes).every((code) => option.codes.includes(code))
+    ));
+
+    if (hasPotentialMatch) return;
+
+    const supportedOptions = fieldConfig.options.map((option) => option.display).join('、');
+    status.textContent = `目前支援：${supportedOptions}`;
     status.classList.add('show');
     setTimeout(() => status.classList.remove('show'), 2000);
+    pressedCodes.clear();
+    input.value = getShortcutCapturePlaceholder(fieldId);
+  });
+
+  input.addEventListener('keyup', (e) => {
+    if (!capturing) return;
+    pressedCodes.delete(e.code);
   });
 }
 
@@ -255,7 +320,7 @@ function setupVocabularyEditor() {
 
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
-  setupShortcutCapture();
+  Object.keys(SHORTCUT_FIELD_CONFIG).forEach((fieldId) => setupShortcutCapture(fieldId));
   setupVocabularyEditor();
 
   document.getElementById('saveBtn').addEventListener('click', saveSettings);

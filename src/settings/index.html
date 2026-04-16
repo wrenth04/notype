@@ -58,9 +58,24 @@
         </select>
       </div>
       <div class="form-group">
-        <label for="shortcut">錄音快捷鍵</label>
+        <label for="shortcut">主錄音快捷鍵</label>
         <input type="text" id="shortcut" readonly placeholder="點擊後按下右 Ctrl...">
         <span class="hint">點擊輸入框後，按下右側 Ctrl，按住錄音、放開停止</span>
+      </div>
+      <div class="form-group">
+        <label for="secondaryShortcut">翻譯錄音快捷鍵</label>
+        <input type="text" id="secondaryShortcut" readonly placeholder="點擊後按下右 Ctrl + Shift...">
+        <span class="hint">使用這組快捷鍵錄音後，會輸出成下方指定語言</span>
+      </div>
+      <div class="form-group">
+        <label for="outputLanguage">翻譯輸出語言</label>
+        <select id="outputLanguage">
+          <option value="zh-TW">繁體中文</option>
+          <option value="zh-CN">簡體中文</option>
+          <option value="en">English</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+        </select>
       </div>
     </section>
 

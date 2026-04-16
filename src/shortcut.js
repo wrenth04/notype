@@ -13,31 +13,76 @@ let recorderWindow = null;
 let isRecording = false;
 let keyPollTimer = null;
 let shortcutMonitorTimer = null;
-let wasShortcutDown = false;
+let shortcutStates = {
+  default: false,
+  translate: false,
+};
+let activeRecordingMode = 'default';
 
 const user32 = koffi.load('user32.dll');
 const GetAsyncKeyState = user32.func('short __stdcall GetAsyncKeyState(int vKey)');
 
 const VK_RCONTROL = 0xA3;
+const VK_LSHIFT = 0xA0;
+const VK_RSHIFT = 0xA1;
+const VK_LMENU = 0xA4;
+const VK_SPACE = 0x20;
+
+const SHORTCUT_DEFINITIONS = {
+  RightCtrl: {
+    value: 'RightCtrl',
+    display: '右 Ctrl',
+    keys: [VK_RCONTROL],
+  },
+  'RightCtrl+Shift': {
+    value: 'RightCtrl+Shift',
+    display: '右 Ctrl + Shift',
+    keys: [VK_RCONTROL, VK_LSHIFT],
+  },
+  'RightCtrl+RightShift': {
+    value: 'RightCtrl+RightShift',
+    display: '右 Ctrl + 右 Shift',
+    keys: [VK_RCONTROL, VK_RSHIFT],
+  },
+  'RightCtrl+LeftAlt': {
+    value: 'RightCtrl+LeftAlt',
+    display: '右 Ctrl + 左 Alt',
+    keys: [VK_RCONTROL, VK_LMENU],
+  },
+  'RightCtrl+Space': {
+    value: 'RightCtrl+Space',
+    display: '右 Ctrl + Space',
+    keys: [VK_RCONTROL, VK_SPACE],
+  },
+};
+
+const SHORTCUT_SETTING_KEYS = {
+  default: 'shortcut',
+  translate: 'secondaryShortcut',
+};
 
 function isKeyDown(vk) {
   return (GetAsyncKeyState(vk) & 0x8000) !== 0;
 }
 
-function getShortcutConfig() {
-  const store = getStore();
-  const configuredShortcut = store.get('shortcut');
+function isShortcutPressed(shortcut) {
+  return shortcut.keys.every((vk) => isKeyDown(vk));
+}
 
-  if (configuredShortcut !== 'RightCtrl') {
-    logger.warn('shortcut', '偵測到不支援的快捷鍵設定，回退為 RightCtrl', { configuredShortcut });
-    store.set('shortcut', 'RightCtrl');
+function getShortcutConfig(mode) {
+  const store = getStore();
+  const settingKey = SHORTCUT_SETTING_KEYS[mode];
+  const fallbackValue = mode === 'translate' ? 'RightCtrl+Shift' : 'RightCtrl';
+  const configuredShortcut = store.get(settingKey);
+  const shortcut = SHORTCUT_DEFINITIONS[configuredShortcut];
+
+  if (!shortcut) {
+    logger.warn('shortcut', '偵測到不支援的快捷鍵設定，回退為預設值', { mode, configuredShortcut, fallbackValue });
+    store.set(settingKey, fallbackValue);
+    return SHORTCUT_DEFINITIONS[fallbackValue];
   }
 
-  return {
-    value: 'RightCtrl',
-    display: '右 Ctrl',
-    vk: VK_RCONTROL,
-  };
+  return shortcut;
 }
 
 function attachRecorderWindowLogging(win) {
@@ -83,31 +128,48 @@ function registerShortcut() {
     shortcutMonitorTimer = null;
   }
 
-  const shortcut = getShortcutConfig();
-  wasShortcutDown = isKeyDown(shortcut.vk);
+  const shortcuts = {
+    default: getShortcutConfig('default'),
+    translate: getShortcutConfig('translate'),
+  };
+
+  shortcutStates = {
+    default: isShortcutPressed(shortcuts.default),
+    translate: isShortcutPressed(shortcuts.translate),
+  };
 
   shortcutMonitorTimer = setInterval(() => {
-    const isShortcutPressed = isKeyDown(shortcut.vk);
+    const isTranslatePressed = isShortcutPressed(shortcuts.translate);
+    const isDefaultPressed = isShortcutPressed(shortcuts.default) && !isTranslatePressed;
 
-    if (!wasShortcutDown && isShortcutPressed) {
-      startRecording();
+    if (!shortcutStates.translate && isTranslatePressed) {
+      startRecording('translate');
+    } else if (!shortcutStates.default && isDefaultPressed) {
+      startRecording('default');
     }
 
-    if (wasShortcutDown && !isShortcutPressed) {
+    if (activeRecordingMode === 'translate' && shortcutStates.translate && !isTranslatePressed) {
+      stopRecordingAndProcess();
+    } else if (activeRecordingMode === 'default' && shortcutStates.default && !isDefaultPressed) {
       stopRecordingAndProcess();
     }
 
-    wasShortcutDown = isShortcutPressed;
+    shortcutStates.default = isDefaultPressed;
+    shortcutStates.translate = isTranslatePressed;
   }, 50);
 
-  logger.info('shortcut', '快捷鍵監聽已啟動', { shortcut: shortcut.value, display: shortcut.display });
+  logger.info('shortcut', '快捷鍵監聽已啟動', {
+    defaultShortcut: shortcuts.default.value,
+    translateShortcut: shortcuts.translate.value,
+  });
   return true;
 }
 
-function startRecording() {
+function startRecording(mode = 'default') {
   if (isRecording) return;
   isRecording = true;
-  logger.info('shortcut', '開始錄音');
+  activeRecordingMode = mode;
+  logger.info('shortcut', '開始錄音', { mode });
   showOverlay('recording');
 
   const win = createRecorderWindow();
@@ -130,9 +192,13 @@ function stopRecordingAndProcess() {
 
 async function handleAudioData(audioBuffer) {
   const store = getStore();
+  const recordingMode = activeRecordingMode;
 
   try {
-    logger.info('shortcut', '開始處理錄音資料', { length: Array.isArray(audioBuffer) ? audioBuffer.length : 0 });
+    logger.info('shortcut', '開始處理錄音資料', {
+      length: Array.isArray(audioBuffer) ? audioBuffer.length : 0,
+      mode: recordingMode,
+    });
     const audioPath = saveAudioBuffer(audioBuffer);
 
     showOverlay('processing');
@@ -157,8 +223,9 @@ async function handleAudioData(audioBuffer) {
     }
 
     showOverlay('polishing');
-    const polishedText = await polishText(rawText);
-    logger.info('shortcut', '文字潤飾完成', { length: polishedText.length });
+    const targetLanguage = recordingMode === 'translate' ? store.get('outputLanguage') : null;
+    const polishedText = await polishText(rawText, { targetLanguage, mode: recordingMode });
+    logger.info('shortcut', '文字潤飾完成', { length: polishedText.length, mode: recordingMode, targetLanguage });
 
     const copyOnly = store.get('copyToClipboard');
     if (copyOnly) {
@@ -177,6 +244,7 @@ async function handleAudioData(audioBuffer) {
     setTimeout(hideOverlay, 3000);
   } finally {
     cleanupTempAudio();
+    activeRecordingMode = 'default';
     logger.info('shortcut', '錄音暫存檔已清理');
   }
 }
@@ -192,7 +260,11 @@ function unregisterShortcut() {
     shortcutMonitorTimer = null;
   }
 
-  wasShortcutDown = false;
+  shortcutStates = {
+    default: false,
+    translate: false,
+  };
+  activeRecordingMode = 'default';
   logger.info('shortcut', '快捷鍵監聽已停止');
 }
 

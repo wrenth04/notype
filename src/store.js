@@ -18,6 +18,10 @@ const defaults = {
 
   // 快捷鍵
   shortcut: 'RightCtrl',
+  secondaryShortcut: 'RightCtrl+Shift',
+
+  // 輸出語言
+  outputLanguage: 'en',
 
   // LLM 潤飾
   enablePolish: true,
