@@ -1,11 +1,13 @@
 const fs = require('fs');
-const { getStore } = require('../store');
+const { getStore, getEnabledVocabularyItems } = require('../store');
+const { buildVocabularyPrompt } = require('./whisper');
 
 // Groq Whisper API 語音轉文字
 async function transcribeWithGroq(audioFilePath) {
   const store = getStore();
   const apiKey = store.get('groqApiKey');
   const language = store.get('language') || 'zh';
+  const vocabularyPrompt = buildVocabularyPrompt(getEnabledVocabularyItems());
 
   if (!apiKey) throw new Error('未設定 Groq API Key');
 
@@ -17,6 +19,9 @@ async function transcribeWithGroq(audioFilePath) {
   formData.append('model', 'whisper-large-v3');
   formData.append('language', language.split('-')[0]);
   formData.append('response_format', 'json');
+  if (vocabularyPrompt) {
+    formData.append('prompt', vocabularyPrompt);
+  }
 
   const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
     method: 'POST',

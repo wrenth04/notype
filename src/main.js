@@ -1,7 +1,7 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, shell } = require('electron');
 const path = require('path');
 const { createTray } = require('./tray');
-const { getStore } = require('./store');
+const { getStore, normalizeVocabularyItems } = require('./store');
 const { registerShortcut, unregisterShortcut, handleAudioData, createRecorderWindow } = require('./shortcut');
 const logger = require('./logger');
 
@@ -86,12 +86,19 @@ app.whenReady().then(() => {
   logger.info('main', '設定儲存初始化完成');
 
   // IPC: 讀取設定
-  ipcMain.handle('get-settings', () => store.store);
+  ipcMain.handle('get-settings', () => ({
+    ...store.store,
+    vocabularyItems: normalizeVocabularyItems(store.get('vocabularyItems')),
+  }));
 
   // IPC: 儲存設定
   ipcMain.handle('save-settings', (_event, settings) => {
     logger.info('main', '收到儲存設定請求', { keys: Object.keys(settings) });
     for (const [key, value] of Object.entries(settings)) {
+      if (key === 'vocabularyItems') {
+        store.set(key, normalizeVocabularyItems(value));
+        continue;
+      }
       store.set(key, value);
     }
     app.setLoginItemSettings({ openAtLogin: settings.launchAtStartup ?? false });
