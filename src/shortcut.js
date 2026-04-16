@@ -7,27 +7,36 @@ const { transcribeWithWhisper } = require('./api/whisper');
 const { transcribeWithGroq } = require('./api/groq');
 const { polishText } = require('./api/llm');
 const { typeText, copyToClipboard } = require('./typer');
+const logger = require('./logger');
 
 let recorderWindow = null;
 let isRecording = false;
 let keyPollTimer = null;
 
-// Windows API: GetAsyncKeyState
 const user32 = koffi.load('user32.dll');
 const GetAsyncKeyState = user32.func('short __stdcall GetAsyncKeyState(int vKey)');
 
-// Virtual Key Codes
-const VK_LMENU = 0xA4;  // Left Alt
-const VK_SPACE = 0x20;  // Space
+const VK_LMENU = 0xA4;
+const VK_SPACE = 0x20;
 
 function isKeyDown(vk) {
-  // 高位元組被設定 = 鍵正被按住
   return (GetAsyncKeyState(vk) & 0x8000) !== 0;
 }
 
-// 建立隱藏的錄音視窗
+function attachRecorderWindowLogging(win) {
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    logger.error('shortcut', '錄音視窗載入失敗', { errorCode, errorDescription, validatedURL });
+  });
+
+  win.webContents.on('render-process-gone', (_event, details) => {
+    logger.error('shortcut', '錄音視窗 renderer process 結束', details);
+  });
+}
+
 function createRecorderWindow() {
   if (recorderWindow) return recorderWindow;
+
+  logger.info('shortcut', '建立隱藏錄音視窗');
 
   recorderWindow = new BrowserWindow({
     show: false,
@@ -40,16 +49,17 @@ function createRecorderWindow() {
     },
   });
 
+  attachRecorderWindowLogging(recorderWindow);
   recorderWindow.loadFile(path.join(__dirname, 'recorder-page.html'));
 
   recorderWindow.on('closed', () => {
+    logger.info('shortcut', '錄音視窗已關閉');
     recorderWindow = null;
   });
 
   return recorderWindow;
 }
 
-// 註冊全域快捷鍵
 function registerShortcut() {
   globalShortcut.unregisterAll();
 
@@ -60,42 +70,37 @@ function registerShortcut() {
   });
 
   if (success) {
-    console.log('快捷鍵已註冊：按住 Left Alt + Space 錄音，放開停止');
+    logger.info('shortcut', '快捷鍵已註冊', { shortcut: 'Alt+Space' });
   } else {
-    console.error('快捷鍵 Alt+Space 註冊失敗');
+    logger.error('shortcut', '快捷鍵註冊失敗', { shortcut: 'Alt+Space' });
   }
 
   return success;
 }
 
-// 開始錄音
 function startRecording() {
   if (isRecording) return;
   isRecording = true;
+  logger.info('shortcut', '開始錄音');
   showOverlay('recording');
 
   const win = createRecorderWindow();
   win.webContents.send('start-recording');
-  console.log('開始錄音');
 
-  // 每 80ms 檢查按鍵是否放開
   keyPollTimer = setInterval(() => {
     const altDown = isKeyDown(VK_LMENU);
     const spaceDown = isKeyDown(VK_SPACE);
 
-    // 只要 Alt 或 Space 其中一個放開，就停止錄音
     if (!altDown || !spaceDown) {
       stopRecordingAndProcess();
     }
   }, 80);
 }
 
-// 停止錄音並處理
 function stopRecordingAndProcess() {
   if (!isRecording) return;
   isRecording = false;
 
-  // 停止輪詢
   if (keyPollTimer) {
     clearInterval(keyPollTimer);
     keyPollTimer = null;
@@ -103,57 +108,59 @@ function stopRecordingAndProcess() {
 
   const win = createRecorderWindow();
   win.webContents.send('stop-recording');
-  console.log('停止錄音，開始處理');
+  logger.info('shortcut', '停止錄音，開始處理');
 }
 
-// 處理錄音完成的音訊資料
 async function handleAudioData(audioBuffer) {
   const store = getStore();
 
   try {
+    logger.info('shortcut', '開始處理錄音資料', { length: Array.isArray(audioBuffer) ? audioBuffer.length : 0 });
     const audioPath = saveAudioBuffer(audioBuffer);
 
-    // STT 辨識
     showOverlay('processing');
     const provider = store.get('sttProvider') || 'openai';
-    let rawText;
+    logger.info('shortcut', '開始 STT', { provider });
 
+    let rawText;
     if (provider === 'groq') {
       rawText = await transcribeWithGroq(audioPath);
     } else {
       rawText = await transcribeWithWhisper(audioPath);
     }
 
-    console.log('STT 結果:', rawText);
+    logger.info('shortcut', 'STT 完成', { hasText: Boolean(rawText && rawText.trim()) });
 
     if (!rawText || rawText.trim() === '') {
+      logger.warn('shortcut', 'STT 結果為空');
       showOverlay('done');
       setTimeout(hideOverlay, 1500);
       cleanupTempAudio();
       return;
     }
 
-    // LLM 潤飾
     showOverlay('polishing');
     const polishedText = await polishText(rawText);
-    console.log('潤飾結果:', polishedText);
+    logger.info('shortcut', '文字潤飾完成', { length: polishedText.length });
 
-    // 輸入文字
     const copyOnly = store.get('copyToClipboard');
     if (copyOnly) {
       copyToClipboard(polishedText);
+      logger.info('shortcut', '文字已複製到剪貼簿');
     } else {
       await typeText(polishedText);
+      logger.info('shortcut', '文字已輸入到目標欄位');
     }
 
     showOverlay('done');
     setTimeout(hideOverlay, 1500);
   } catch (err) {
-    console.error('處理錄音失敗:', err);
+    logger.error('shortcut', '處理錄音失敗', err);
     showOverlay('error');
     setTimeout(hideOverlay, 3000);
   } finally {
     cleanupTempAudio();
+    logger.info('shortcut', '錄音暫存檔已清理');
   }
 }
 
@@ -163,6 +170,7 @@ function unregisterShortcut() {
     keyPollTimer = null;
   }
   globalShortcut.unregisterAll();
+  logger.info('shortcut', '快捷鍵已解除註冊');
 }
 
 module.exports = { registerShortcut, unregisterShortcut, handleAudioData, createRecorderWindow };

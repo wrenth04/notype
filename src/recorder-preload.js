@@ -10,4 +10,7 @@ contextBridge.exposeInMainWorld('recorderBridge', {
   sendAudioData: (buffer) => {
     ipcRenderer.send('audio-data', buffer);
   },
+  reportLog: (level, scope, message, meta) => {
+    ipcRenderer.send('renderer-log', { level, scope, message, meta });
+  },
 });

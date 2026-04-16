@@ -1,9 +1,9 @@
-const { Tray, Menu, nativeImage } = require('electron');
+const { Tray, Menu, nativeImage, dialog } = require('electron');
 const path = require('path');
 
 let tray = null;
 
-function createTray({ onSettings, onQuit }) {
+function createTray({ onSettings, onOpenLogs, onQuit }) {
   const iconPath = path.join(__dirname, '..', 'assets', 'icon.png');
   const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
 
@@ -15,11 +15,24 @@ function createTray({ onSettings, onQuit }) {
       label: '⚙️ 設定',
       click: () => onSettings(),
     },
+    {
+      label: '📂 開啟日誌資料夾',
+      click: async () => {
+        const opened = await onOpenLogs();
+        if (!opened) {
+          dialog.showMessageBox({
+            type: 'error',
+            title: '無法開啟日誌資料夾',
+            message: '開啟日誌資料夾失敗',
+            detail: '請稍後再試，或手動到使用者資料夾中的 logs 目錄查看。',
+          });
+        }
+      },
+    },
     { type: 'separator' },
     {
       label: '關於 NoType',
       click: () => {
-        const { dialog } = require('electron');
         dialog.showMessageBox({
           type: 'info',
           title: '關於 NoType',
@@ -37,7 +50,6 @@ function createTray({ onSettings, onQuit }) {
 
   tray.setContextMenu(contextMenu);
 
-  // 左鍵點擊也開啟選單
   tray.on('click', () => {
     tray.popUpContextMenu(contextMenu);
   });

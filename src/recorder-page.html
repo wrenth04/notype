@@ -7,9 +7,30 @@
   let audioChunks = [];
   let stream = null;
 
-  // 初始化麥克風
+  function report(level, message, meta) {
+    window.recorderBridge.reportLog(level, 'renderer:recorder', message, meta);
+  }
+
+  window.addEventListener('error', (event) => {
+    report('error', '未捕捉的 renderer 錯誤', {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno,
+    });
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    report('error', '未處理的 Promise 拒絕', {
+      reason: reason?.message || String(reason),
+      stack: reason?.stack || null,
+    });
+  });
+
   async function initMicrophone() {
     if (stream) return;
+    report('info', '開始初始化麥克風');
     stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
@@ -18,17 +39,19 @@
         noiseSuppression: true,
       },
     });
+    report('info', '麥克風初始化完成');
   }
 
-  // 開始錄音
   window.recorderBridge.onStartRecording(async () => {
     try {
+      report('info', '收到開始錄音指令');
       await initMicrophone();
       audioChunks = [];
 
       mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus',
       });
+      report('info', 'MediaRecorder 建立完成');
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -37,19 +60,35 @@
       };
 
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        const buffer = await blob.arrayBuffer();
-        window.recorderBridge.sendAudioData(Array.from(new Uint8Array(buffer)));
+        try {
+          report('info', '錄音停止，開始傳送音訊資料', { chunks: audioChunks.length });
+          const blob = new Blob(audioChunks, { type: 'audio/webm' });
+          const buffer = await blob.arrayBuffer();
+          window.recorderBridge.sendAudioData(Array.from(new Uint8Array(buffer)));
+          report('info', '音訊資料已送出', { bytes: buffer.byteLength });
+        } catch (err) {
+          console.error('音訊送出失敗:', err);
+          report('error', '音訊送出失敗', {
+            message: err?.message || String(err),
+            stack: err?.stack || null,
+          });
+        }
       };
 
-      mediaRecorder.start(100); // 每 100ms 收集一次資料
+      mediaRecorder.start(100);
+      report('info', 'MediaRecorder 已開始錄音');
     } catch (err) {
       console.error('錄音啟動失敗:', err);
+      report('error', '錄音啟動失敗', {
+        message: err?.message || String(err),
+        stack: err?.stack || null,
+        name: err?.name || null,
+      });
     }
   });
 
-  // 停止錄音
   window.recorderBridge.onStopRecording(() => {
+    report('info', '收到停止錄音指令');
     if (mediaRecorder && mediaRecorder.state === 'recording') {
       mediaRecorder.stop();
     }

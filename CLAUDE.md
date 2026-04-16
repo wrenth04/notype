@@ -35,6 +35,7 @@ NoType 是一個 AI 語音輸入工具，讓使用者不需要打字，透過語
 - [ ] 端到端測試確認文字成功輸入到目標欄位
 - [ ] 體驗優化（圖示狀態變化、錯誤提示、開機啟動等）
 - [x] GitHub Actions 自動建置 Windows 版本
+- [x] 打包後本地錯誤日誌（app.log）與日誌資料夾入口
 - [ ] 打包成 Windows 安裝檔（electron-builder）
 
 ## 開發過程中遇到的問題與解法
@@ -77,7 +78,8 @@ NoType 是一個 AI 語音輸入工具，讓使用者不需要打字，透過語
 | 2026-04-12 | 專案初始化 | ✅ |
 | 2026-04-12 | 完成 v0.1：骨架、設定頁、錄音、STT、LLM、鍵盤輸入 | ✅ |
 | 2026-04-12 | 修正圖示（SVG→PNG）、快捷鍵（toggle→按住）、鍵盤卡住問題 | ✅ |
-| 2026-04-16 | 新增 GitHub Actions workflow，自動建置 Windows 安裝版與 Portable 版 | 待推送 |
+| 2026-04-16 | 新增 GitHub Actions workflow，自動建置 Windows 安裝版與 Portable 版 | ✅ |
+| 2026-04-16 | 新增本地錯誤日誌（app.log）、renderer 錯誤回報與日誌資料夾入口 | 待推送 |
 
 ## 資料夾結構
 ```
@@ -97,7 +99,8 @@ notype/
 │       └── build-windows.yml # GitHub Actions：自動建置 Windows 安裝版與 Portable 版
 └── src/
     ├── main.js              # Electron 主程序入口 + IPC handlers
-    ├── tray.js              # 系統匣管理
+    ├── logger.js            # 本地錯誤日誌寫入（app.log）
+    ├── tray.js              # 系統匣管理 + 開啟日誌資料夾
     ├── store.js             # 本地設定存儲（electron-store v8）
     ├── recorder.js          # 錄音浮動視窗管理
     ├── recorder-page.html   # 隱藏錄音頁面（MediaRecorder）
