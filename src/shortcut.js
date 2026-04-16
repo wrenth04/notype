@@ -1,4 +1,4 @@
-const { globalShortcut, BrowserWindow } = require('electron');
+const { BrowserWindow } = require('electron');
 const path = require('path');
 const koffi = require('koffi');
 const { getStore } = require('./store');
@@ -12,15 +12,32 @@ const logger = require('./logger');
 let recorderWindow = null;
 let isRecording = false;
 let keyPollTimer = null;
+let shortcutMonitorTimer = null;
+let wasShortcutDown = false;
 
 const user32 = koffi.load('user32.dll');
 const GetAsyncKeyState = user32.func('short __stdcall GetAsyncKeyState(int vKey)');
 
-const VK_LMENU = 0xA4;
-const VK_SPACE = 0x20;
+const VK_RCONTROL = 0xA3;
 
 function isKeyDown(vk) {
   return (GetAsyncKeyState(vk) & 0x8000) !== 0;
+}
+
+function getShortcutConfig() {
+  const store = getStore();
+  const configuredShortcut = store.get('shortcut');
+
+  if (configuredShortcut !== 'RightCtrl') {
+    logger.warn('shortcut', '偵測到不支援的快捷鍵設定，回退為 RightCtrl', { configuredShortcut });
+    store.set('shortcut', 'RightCtrl');
+  }
+
+  return {
+    value: 'RightCtrl',
+    display: '右 Ctrl',
+    vk: VK_RCONTROL,
+  };
 }
 
 function attachRecorderWindowLogging(win) {
@@ -61,21 +78,30 @@ function createRecorderWindow() {
 }
 
 function registerShortcut() {
-  globalShortcut.unregisterAll();
-
-  const success = globalShortcut.register('Alt+Space', () => {
-    if (!isRecording) {
-      startRecording();
-    }
-  });
-
-  if (success) {
-    logger.info('shortcut', '快捷鍵已註冊', { shortcut: 'Alt+Space' });
-  } else {
-    logger.error('shortcut', '快捷鍵註冊失敗', { shortcut: 'Alt+Space' });
+  if (shortcutMonitorTimer) {
+    clearInterval(shortcutMonitorTimer);
+    shortcutMonitorTimer = null;
   }
 
-  return success;
+  const shortcut = getShortcutConfig();
+  wasShortcutDown = isKeyDown(shortcut.vk);
+
+  shortcutMonitorTimer = setInterval(() => {
+    const isShortcutPressed = isKeyDown(shortcut.vk);
+
+    if (!wasShortcutDown && isShortcutPressed) {
+      startRecording();
+    }
+
+    if (wasShortcutDown && !isShortcutPressed) {
+      stopRecordingAndProcess();
+    }
+
+    wasShortcutDown = isShortcutPressed;
+  }, 50);
+
+  logger.info('shortcut', '快捷鍵監聽已啟動', { shortcut: shortcut.value, display: shortcut.display });
+  return true;
 }
 
 function startRecording() {
@@ -86,15 +112,6 @@ function startRecording() {
 
   const win = createRecorderWindow();
   win.webContents.send('start-recording');
-
-  keyPollTimer = setInterval(() => {
-    const altDown = isKeyDown(VK_LMENU);
-    const spaceDown = isKeyDown(VK_SPACE);
-
-    if (!altDown || !spaceDown) {
-      stopRecordingAndProcess();
-    }
-  }, 80);
 }
 
 function stopRecordingAndProcess() {
@@ -169,8 +186,14 @@ function unregisterShortcut() {
     clearInterval(keyPollTimer);
     keyPollTimer = null;
   }
-  globalShortcut.unregisterAll();
-  logger.info('shortcut', '快捷鍵已解除註冊');
+
+  if (shortcutMonitorTimer) {
+    clearInterval(shortcutMonitorTimer);
+    shortcutMonitorTimer = null;
+  }
+
+  wasShortcutDown = false;
+  logger.info('shortcut', '快捷鍵監聽已停止');
 }
 
 module.exports = { registerShortcut, unregisterShortcut, handleAudioData, createRecorderWindow };

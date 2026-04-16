@@ -12,7 +12,7 @@ const defaults = {
   language: 'zh-TW',
 
   // 快捷鍵
-  shortcut: 'Alt+Space',
+  shortcut: 'RightCtrl',
 
   // LLM 潤飾
   enablePolish: true,

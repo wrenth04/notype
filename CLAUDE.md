@@ -36,6 +36,7 @@ NoType 是一個 AI 語音輸入工具，讓使用者不需要打字，透過語
 - [ ] 體驗優化（圖示狀態變化、錯誤提示、開機啟動等）
 - [x] GitHub Actions 自動建置 Windows 版本
 - [x] 打包後本地錯誤日誌（app.log）與日誌資料夾入口
+- [x] 快捷鍵改為可設定，預設使用右 Ctrl 單鍵錄音
 - [ ] 打包成 Windows 安裝檔（electron-builder）
 
 ## 開發過程中遇到的問題與解法
@@ -79,7 +80,8 @@ NoType 是一個 AI 語音輸入工具，讓使用者不需要打字，透過語
 | 2026-04-12 | 完成 v0.1：骨架、設定頁、錄音、STT、LLM、鍵盤輸入 | ✅ |
 | 2026-04-12 | 修正圖示（SVG→PNG）、快捷鍵（toggle→按住）、鍵盤卡住問題 | ✅ |
 | 2026-04-16 | 新增 GitHub Actions workflow，自動建置 Windows 安裝版與 Portable 版 | ✅ |
-| 2026-04-16 | 新增本地錯誤日誌（app.log）、renderer 錯誤回報與日誌資料夾入口 | 待推送 |
+| 2026-04-16 | 新增本地錯誤日誌（app.log）、renderer 錯誤回報與日誌資料夾入口 | ✅ |
+| 2026-04-16 | 快捷鍵改為可設定，預設使用右 Ctrl 單鍵錄音 | 待推送 |
 
 ## 資料夾結構
 ```
@@ -114,7 +116,7 @@ notype/
     │   ├── groq.js          # Groq Whisper STT
     │   └── llm.js           # LLM 文字潤飾
     └── settings/
-        ├── index.html       # 設定頁面（深色主題）
+        ├── index.html       # 設定頁面（右 Ctrl 單鍵設定）
         ├── settings.js      # 設定頁面邏輯
         ├── settings.css     # 設定頁面樣式
         └── preload.js       # 設定頁面 preload

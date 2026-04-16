@@ -1,11 +1,14 @@
-// 設定欄位 ID 對應
 const FIELDS = [
   'sttProvider', 'openaiApiKey', 'groqApiKey',
   'language', 'shortcut', 'enablePolish', 'polishProvider',
   'copyToClipboard', 'launchAtStartup',
 ];
 
-// 載入設定
+const SUPPORTED_SHORTCUT = {
+  value: 'RightCtrl',
+  display: '右 Ctrl',
+};
+
 async function loadSettings() {
   const settings = await window.noTypeAPI.getSettings();
   for (const id of FIELDS) {
@@ -13,24 +16,29 @@ async function loadSettings() {
     if (!el) continue;
     if (el.type === 'checkbox') {
       el.checked = settings[id] ?? false;
+    } else if (id === 'shortcut') {
+      el.value = settings[id] === SUPPORTED_SHORTCUT.value ? SUPPORTED_SHORTCUT.display : SUPPORTED_SHORTCUT.display;
+      el.dataset.shortcutValue = SUPPORTED_SHORTCUT.value;
     } else {
       el.value = settings[id] ?? '';
     }
   }
 }
 
-// 收集設定
 function collectSettings() {
   const settings = {};
   for (const id of FIELDS) {
     const el = document.getElementById(id);
     if (!el) continue;
-    settings[id] = el.type === 'checkbox' ? el.checked : el.value;
+    if (id === 'shortcut') {
+      settings[id] = el.dataset.shortcutValue || SUPPORTED_SHORTCUT.value;
+    } else {
+      settings[id] = el.type === 'checkbox' ? el.checked : el.value;
+    }
   }
   return settings;
 }
 
-// 儲存設定
 async function saveSettings() {
   const settings = collectSettings();
   await window.noTypeAPI.saveSettings(settings);
@@ -41,7 +49,6 @@ async function saveSettings() {
   setTimeout(() => status.classList.remove('show'), 2000);
 }
 
-// 測試 API Key
 async function testApiKey(provider) {
   const keyField = provider === 'openai' ? 'openaiApiKey' : 'groqApiKey';
   const apiKey = document.getElementById(keyField).value;
@@ -70,21 +77,21 @@ async function testApiKey(provider) {
   setTimeout(() => { btn.textContent = '測試'; btn.className = 'btn-test'; }, 3000);
 }
 
-// 快捷鍵錄製
 function setupShortcutCapture() {
   const input = document.getElementById('shortcut');
+  const status = document.getElementById('saveStatus');
   let capturing = false;
 
   input.addEventListener('focus', () => {
     capturing = true;
-    input.value = '請按下組合鍵...';
+    input.value = '請按右 Ctrl...';
   });
 
   input.addEventListener('blur', () => {
     capturing = false;
-    // 如果沒有錄到鍵，恢復原值
-    if (input.value === '請按下組合鍵...') {
-      loadSettings(); // 重新載入
+    if (input.value === '請按右 Ctrl...') {
+      input.value = SUPPORTED_SHORTCUT.display;
+      input.dataset.shortcutValue = SUPPORTED_SHORTCUT.value;
     }
   });
 
@@ -92,31 +99,26 @@ function setupShortcutCapture() {
     if (!capturing) return;
     e.preventDefault();
 
-    const parts = [];
-    if (e.ctrlKey) parts.push('Ctrl');
-    if (e.altKey) parts.push('Alt');
-    if (e.shiftKey) parts.push('Shift');
-    if (e.metaKey) parts.push('Super');
-
-    // 排除單獨的修飾鍵
-    const modKeys = ['Control', 'Alt', 'Shift', 'Meta'];
-    if (!modKeys.includes(e.key)) {
-      parts.push(e.key === ' ' ? 'Space' : e.key);
-      input.value = parts.join('+');
+    if (e.code === 'ControlRight') {
+      input.value = SUPPORTED_SHORTCUT.display;
+      input.dataset.shortcutValue = SUPPORTED_SHORTCUT.value;
       capturing = false;
       input.blur();
+      return;
     }
+
+    status.textContent = '目前只支援右 Ctrl';
+    status.classList.add('show');
+    setTimeout(() => status.classList.remove('show'), 2000);
   });
 }
 
-// 初始化
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   setupShortcutCapture();
 
   document.getElementById('saveBtn').addEventListener('click', saveSettings);
 
-  // 測試按鈕
   document.querySelectorAll('.btn-test').forEach((btn) => {
     btn.addEventListener('click', () => testApiKey(btn.dataset.provider));
   });
