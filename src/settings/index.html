@@ -95,13 +95,15 @@
       </div>
     </section>
 
-    <!-- 字詞列表 -->
+    <!-- 字詞管理 -->
     <section class="card">
-      <h2>字詞列表</h2>
-      <p class="card-description">加入專有名詞、品牌名、人名或常見誤辨識字詞，幫助 STT 提示與後續自動修正。</p>
-      <div id="vocabularyList" class="vocabulary-list"></div>
-      <button id="addVocabularyBtn" type="button" class="btn-secondary">新增一筆字詞</button>
-      <span class="hint">正確字詞會作為優先辨識目標；常見錯詞/別名請用逗號分隔，例如：Claude Code, claude code, 克勞德 code</span>
+      <h2>字詞管理</h2>
+      <p class="card-description">加入想優先辨識與保留的字詞，幫助 STT 與後續潤飾維持正確寫法。</p>
+      <div class="form-group">
+        <label for="vocabularyInput">字詞清單</label>
+        <input id="vocabularyInput" type="text" placeholder="用逗號分隔，例如：Claude Code, Anthropic, TypeScript">
+      </div>
+      <span class="hint">多個字詞請用逗號分隔，系統會自動去除空白與重複項目。</span>
     </section>
 
     <!-- 其他 -->

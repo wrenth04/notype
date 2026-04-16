@@ -25,8 +25,7 @@ function buildVocabularyRules(items) {
 
   const parts = [];
   for (const item of items) {
-    const aliases = item.aliases.length ? `；常見錯詞或別名：${item.aliases.join('、')}` : '';
-    const nextPart = `標準字詞：${item.term}${aliases}`;
+    const nextPart = `標準字詞：${item.term}`;
     const candidate = parts.length === 0 ? nextPart : `${parts.join('\n')}
 ${nextPart}`;
     if (candidate.length > MAX_VOCABULARY_PROMPT_LENGTH) break;
@@ -38,9 +37,9 @@ ${nextPart}`;
   return `
 
 另外請遵守以下字詞規則：
-- 以下標準字詞請優先保留，不要改寫成別的近音字、通用詞或中文翻譯。
-- 若原文出現明顯對應的錯詞、近似拼法或別名，可保守地校正成對應標準字詞。
-- 若你不確定是否對應，請保留原文，不要強行替換。
+- 以下標準字詞請優先保留原樣，不要改寫成別的近音字、通用詞或翻譯。
+- 若原文已經是這些字詞，請維持不變。
+- 若你不確定，請保留原文，不要自行替換。
 ${parts.join('\n')}`;
 }
 
